@@ -5,6 +5,8 @@ var Latest = require('./latest.model');
 
 // Get list of latests
 exports.index = function(req, res) {
+
+
   Latest.find(function (err, latests) {
     if(err) { return handleError(res, err); }
     return res.status(200).json(latests);
@@ -22,7 +24,9 @@ exports.show = function(req, res) {
 
 // Creates a new latest in the DB.
 exports.create = function(req, res) {
-  Latest.create(req.body, function(err, latest) {
+  var body = {'searchString':req.query.q};
+
+  Latest.create(body, function(err, latest) {
     if(err) { return handleError(res, err); }
     return res.status(201).json(latest);
   });
