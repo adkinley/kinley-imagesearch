@@ -4,8 +4,8 @@ var mongoose = require('mongoose'),
     Schema = mongoose.Schema;
 
 var ImagesearchSchema = new Schema({
-  name: String,
-  info: String,
+   searchString: String,
+  updated: {type: Date, default:Date.now},
   active: Boolean
 });
 

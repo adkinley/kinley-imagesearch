@@ -5,9 +5,12 @@ var http = require('http');
 var https = require('https');
 var Imagesearch = require('./imagesearch.model');
 var config = require('../../config/environment');
-// Get list of imagesearchs
+// Get list of recent imagesearchs
 exports.index = function(req, res) {
-  Imagesearch.find(function (err, imagesearchs) {
+  var cutoff = new Date();
+cutoff.setDate(cutoff.getDate()-1);
+
+  Imagesearch.find({updated:{$gt:cutoff}},function (err, imagesearchs) {
     if(err) { return handleError(res, err); }
     return res.status(200).json(imagesearchs);
   });
@@ -15,43 +18,45 @@ exports.index = function(req, res) {
 
 // Get a single imagesearch
 exports.show = function(req, res) {
+
   var baseStr = req.params.id;
   var offset = req.query.offset;
-
   var searchTerms = baseStr.replace(/ /g, "+");
-    console.log("Das is bad " +searchTerms);
-      var cx = '017728127643810685442:oziarnalkb8';
+//    console.log("Das is bad " +searchTerms);
+    var cx = '017728127643810685442:oziarnalkb8';
     var apikey = 'AIzaSyBFD5kTrogjexv2AQPjtSA3KETTd2_6Cwk';
 
-     // var url = 'https://www.googleapis.com/customsearch/v1?key='+apikey+'&q=lolcats+funny&searchType=image&cx='+cx;//&searchType=image';//&cx='+cx;
-      var url = 'www.googleapis.com';
-      var path = '/customsearch/v1?key='+apikey+'&q='
+    var url = 'www.googleapis.com';
+    var path = '/customsearch/v1?key='+apikey+'&q='
       +searchTerms+'&searchType=image&cx='+cx+'&num=10&start='+offset;//+'&callback=JSON_CALLBACK';
-//      console.log("path is " + path);
-//    var url = 'https://www.googleapis.com/customsearch/v1?key=INSERT_YOUR_API_KEY&cx=017576662512468239146:omuauf_lfve&q=lectures';
-//  console.log(url+path);
-var options2 = {
-  port: config.port,
-  method: 'POST',
-  path:'/api/latest?q='+searchTerms,
-  //host:'127.0.0.1'
-};
 
-http.request(options2).end();
+    /* Options for post to save the search */
+    var options2 = {
+      port: config.port,
+      method: 'POST',
+      path:'/api/latest?q='+searchTerms,
+    };
 
+/* Save the seach. Don't care about the reply */
+//http.request(options2).end();
 
-var options = {
-  hostname : url,
-  path : path
-}
+  Imagesearch.create({searchString:searchTerms});
+  /* Options for get request */
+  var options = {
+    hostname : url,
+    path : path
+  }
+  
+  /* Callback for get request */
   var callback = function(response) {
     var found = false;
     var str = "";
 
     response.on('end', function (d) {
+      // I should worry about failed searches and not do all of the below
+
       var parsed  = JSON.parse(str);
-   
-     var output = parsed.items.map(function (elt) {
+      var output = parsed.items.map(function (elt) {
 
         var item = {};
         item.link = '<a href='+elt.link+' target="_blank">'+elt.link+'</a>';
@@ -59,30 +64,31 @@ var options = {
         item.url = '<a href='+elt.image.contextLink+' target="_blank">'+elt.image.contextLink+'</a>';
         return item;
       });
-     var htmlOutput = "<div class='container'>";
-     var para = '<p style="margin-left:40px;padding-top:0px;padding-bottom:0px;margin-top:0px;margin-bottom:0px">';
+      var htmlOutput = "<div class='container'>";
+      var para = '<p style="margin-left:40px;padding-top:0px;padding-bottom:0px;margin-top:0px;margin-bottom:0px">';
 
-     output.forEach(function(elt) {
-      htmlOutput+='<div>{'+para+'"link":'+elt.link +',</p>' + 
-      para+'"snippet":'+elt.snippet+',</p>' +
-      '"url":'+elt.url+'</p>}</div>';
-     });
-
-      return res.send(htmlOutput);
+      output.forEach(function(elt) {
+        htmlOutput+='<div>'+para+'{link:'+elt.link +',<br/>' + 
+        "snippets:"+elt.snippet+',<br/>' +
+        "url:"+elt.url+'}</p></div>';
+      });/*
+      output.forEach(function(elt) {
+        htmlOutput+='<div>{'+para+'"link":'+elt.link +',</p>' + 
+        para+'"snippet":'+elt.snippet+',</p>' +
+        '"url":'+elt.url+'</p>}</div>';
+      });
+*/
+      return res.send(output);
+//      return res.send(htmlOutput);
     });
-  response.on('data', function (d) {
+    response.on('data', function (d) {
       str+=d;
     });
   }; 
 
   https.get(options, callback);
 
-/*  Imagesearch.findById(req.params.id, function (err, imagesearch) {
-    if(err) { return handleError(res, err); }
-    if(!imagesearch) { return res.status(404).send('Not Found'); }
-    return res.json(imagesearch);
-  });*/
-};
+  };
 
 // Creates a new imagesearch in the DB.
 exports.create = function(req, res) {
